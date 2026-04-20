@@ -4,9 +4,10 @@ import pandas_ta as ta
 import telebot
 import time
 import os
+import traceback
 
 # =====================
-# TELEGRAM CONFIG
+# TELEGRAM
 # =====================
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
@@ -14,19 +15,22 @@ CHAT_ID = os.getenv("CHAT_ID")
 bot = telebot.TeleBot(TOKEN)
 
 # =====================
-# OKX CONFIG
+# EXCHANGE
 # =====================
-exchange = ccxt.okx()
-symbol = 'BTC/USDT'
-timeframes = ['1m', '5m', '15m']
+exchange = ccxt.okx({
+    "enableRateLimit": True
+})
+
+symbol = "BTC/USDT"
+timeframes = ["1m", "5m", "15m"]
 
 
 # =====================
-# SWING DETECTION
+# SWING DETECT
 # =====================
 def find_pivots(df, window=3):
-    highs = df['high']
-    lows = df['low']
+    highs = df["high"]
+    lows = df["low"]
 
     swing_highs = []
     swing_lows = []
@@ -42,7 +46,7 @@ def find_pivots(df, window=3):
 
 
 # =====================
-# DIVERGENCE LOGIC
+# DIVERGENCE
 # =====================
 def check_divergence(df, tf):
 
@@ -51,86 +55,71 @@ def check_divergence(df, tf):
 
     swing_highs, swing_lows = find_pivots(df)
 
-    # =====================
-    # BULLISH DIVERGENCE
-    # =====================
+    # ===== BULLISH =====
     if len(swing_lows) >= 2:
         l1, l2 = swing_lows[-2], swing_lows[-1]
 
-        price_l1 = df['low'].iloc[l1]
-        price_l2 = df['low'].iloc[l2]
-
-        macd_l1 = macd_line.iloc[l1]
-        macd_l2 = macd_line.iloc[l2]
-
-        if price_l2 < price_l1 and macd_l2 > macd_l1:
+        if df["low"].iloc[l2] < df["low"].iloc[l1] and macd_line.iloc[l2] > macd_line.iloc[l1]:
             msg = f"""
-🟢 PHÂN KỲ TĂNG (BULLISH)
-⏱ Khung: {tf}
-
-📉 Giá: {price_l1:.2f} → {price_l2:.2f}
-📊 MACD: {macd_l1:.3f} → {macd_l2:.3f}
-
-🚀 Có thể đảo chiều tăng
+🟢 PHÂN KỲ TĂNG
+⏱ {tf}
+📉 {df['low'].iloc[l1]:.2f} → {df['low'].iloc[l2]:.2f}
 """
             bot.send_message(CHAT_ID, msg)
-            print("Bullish divergence detected")
 
-    # =====================
-    # BEARISH DIVERGENCE
-    # =====================
+    # ===== BEARISH =====
     if len(swing_highs) >= 2:
         h1, h2 = swing_highs[-2], swing_highs[-1]
 
-        price_h1 = df['high'].iloc[h1]
-        price_h2 = df['high'].iloc[h2]
-
-        macd_h1 = macd_line.iloc[h1]
-        macd_h2 = macd_line.iloc[h2]
-
-        if price_h2 > price_h1 and macd_h2 < macd_h1:
+        if df["high"].iloc[h2] > df["high"].iloc[h1] and macd_line.iloc[h2] < macd_line.iloc[h1]:
             msg = f"""
-🔴 PHÂN KỲ GIẢM (BEARISH)
-⏱ Khung: {tf}
-
-📈 Giá: {price_h1:.2f} → {price_h2:.2f}
-📊 MACD: {macd_h1:.3f} → {macd_h2:.3f}
-
-⚠️ Có thể đảo chiều giảm
+🔴 PHÂN KỲ GIẢM
+⏱ {tf}
+📈 {df['high'].iloc[h1]:.2f} → {df['high'].iloc[h2]:.2f}
 """
             bot.send_message(CHAT_ID, msg)
-            print("Bearish divergence detected")
 
 
 # =====================
-# MAIN LOOP
+# MAIN LOOP (ANTI CRASH)
 # =====================
-def run():
-    print("🚀 Bot đã khởi động trên Railway")
+def run_bot():
+    print("🚀 BOT STARTED 24/7")
 
-    # test Telegram khi start
+    # test Telegram
     try:
-        bot.send_message(CHAT_ID, "🔥 Bot đã khởi động thành công trên Railway")
+        bot.send_message(CHAT_ID, "🔥 Bot Railway đã chạy 24/7 thành công")
     except Exception as e:
         print("Telegram error:", e)
 
     while True:
         try:
             for tf in timeframes:
-                print(f"📊 Đang quét khung: {tf}")
+                print(f"📊 Scanning {tf}")
 
                 bars = exchange.fetch_ohlcv(symbol, timeframe=tf, limit=200)
-                df = pd.DataFrame(bars, columns=['ts','open','high','low','close','vol'])
+                df = pd.DataFrame(bars, columns=["ts","open","high","low","close","vol"])
 
                 check_divergence(df, tf)
+
                 time.sleep(1)
 
-            print("⏳ Chờ vòng quét tiếp...")
-            time.sleep(30)
+            print("⏳ Next cycle...\n")
+            time.sleep(20)
 
         except Exception as e:
-            print("❌ Lỗi:", e)
-            time.sleep(10)
+            print("❌ ERROR LOOP:", e)
+            traceback.print_exc()
+            time.sleep(5)
 
 
-run()
+# =====================
+# PROTECTION WRAPPER (QUAN TRỌNG)
+# =====================
+if __name__ == "__main__":
+    while True:
+        try:
+            run_bot()
+        except Exception as e:
+            print("🔥 CRASH RECOVERED:", e)
+            time.sleep(5)
