@@ -13,6 +13,7 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 bot = telebot.TeleBot(TOKEN)
+bot.send_message(CHAT_ID, "🔥 Bot Railway đã chạy OK")
 
 # =====================
 # OKX CONFIG
